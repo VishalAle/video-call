@@ -25,6 +25,8 @@ function App() {
   const [name, setName] = useState("")
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
+  const [callerName, setCallerName] = useState("")
+
 
   const myVideo = useRef()
   const userVideo = useRef()
@@ -51,9 +53,16 @@ function App() {
     socket.on("callUser", (data) => {
       setReceivingCall(true)
       setCaller(data.from)
-      setName(data.name)
+      setCallerName(data.name)
       setCallerSignal(data.signal)
     })
+    
+    socket.on("callEnded", () => {
+    alert("The other user ended the call.")
+    setCallEnded(true)
+    connectionRef.current?.destroy()
+    window.location.reload()
+  })
   }, [])
 
   const callUser = (id) => {
@@ -106,7 +115,9 @@ function App() {
 
   const leaveCall = () => {
     setCallEnded(true)
-    connectionRef.current.destroy()
+    connectionRef.current?.destroy()
+    socket.emit("endCall", { to: caller || idToCall }) // 👈 notify the other peer
+    window.location.reload()
   }
 
   const toggleMute = () => {
@@ -129,7 +140,6 @@ function App() {
 
   return (
     <>
-      <h1 style={{ textAlign: "center", color: "#fff" }}>Zoomish</h1>
       <div className="container">
         <div className="video-container">
           <div className="video">
@@ -139,7 +149,10 @@ function App() {
                 muted
                 ref={myVideo}
                 autoPlay
-                style={{ width: "300px" }}
+                style={{
+                         width: "580px",
+                         transform: "scaleX(-1)", // Un-mirror local video
+                 }}
               />
             )}
           </div>
@@ -149,7 +162,10 @@ function App() {
                 playsInline
                 ref={userVideo}
                 autoPlay
-                style={{ width: "300px" }}
+                style={{
+                         width: "580px",
+                         transform: "scaleX(-1)", // Un-mirror local video
+                 }}
               />
             ) : null}
           </div>
@@ -231,7 +247,7 @@ function App() {
         <div>
           {receivingCall && !callAccepted ? (
             <div className="caller">
-              <h1>{name} is calling...</h1>
+              <h1>{callerName || "Someone"} is calling...</h1>
               <Button variant="contained" color="primary" onClick={answerCall}>
                 Answer
               </Button>
