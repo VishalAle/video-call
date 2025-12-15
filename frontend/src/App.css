@@ -1,8 +1,10 @@
+/* Container layout */
 .container {
 	display: grid;
 	grid-template-columns: 7fr 3fr;
 }
 
+/* Sidebar / controls */
 .myId {
 	margin-right: 5rem;
 	border-radius: 5px;
@@ -13,32 +15,66 @@
 		#e2e2e2,
 		#c9d6ff
 	); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
-
 	padding: 2rem;
 	display: grid;
 	justify-content: center;
 	align-content: center;
 }
 
+/* Call buttons container */
 .call-button {
 	text-align: center;
 	margin-top: 2rem;
 }
 
+/* Video container layout */
 .video-container {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	justify-content: center;
 	align-content: center;
-	margin-top: 10rem;
-	margin-left: 10rem;
+	margin-top: 5rem;
+	gap: 2rem; /* spacing between videos */
 }
 
+/* Each video wrapper with border and rounded corners */
+.video-wrapper {
+	border: 2px solid #1976d2; /* blue border like buttons */
+	border-radius: 12px;
+	overflow: hidden;
+	width: 580px;
+	height: 360px;
+	background-color: #000;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+/* Video element fills wrapper */
+.video-box {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* Placeholder when camera is loading */
+.placeholder {
+	color: #fff;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-weight: bold;
+	font-size: 1.2rem;
+}
+
+/* Incoming call notification */
 .caller {
 	text-align: center;
 	color: #fff;
+	margin-top: 2rem;
 }
 
+/* Body background gradient */
 body {
 	background: #4776e6; /* fallback for old browsers */
 	background: -webkit-linear-gradient(to right, #8e54e9, #4776e6); /* Chrome 10-25, Safari 5.1-6 */
@@ -47,4 +83,12 @@ body {
 		#8e54e9,
 		#4776e6
 	); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+}
+
+/* Buttons (call, mute, video) consistent styling */
+button.MuiButton-root {
+	border-radius: 8px;
+	min-width: 120px;
+	min-height: 50px;
+	font-size: 1rem;
 }

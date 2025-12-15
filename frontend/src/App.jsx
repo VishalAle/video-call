@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Button, IconButton, TextField } from "@mui/material";
+import { Button, TextField, Stack } from "@mui/material";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import PhoneIcon from "@mui/icons-material/Phone";
 import MicIcon from "@mui/icons-material/Mic";
@@ -11,7 +11,7 @@ import Peer from "simple-peer";
 import io from "socket.io-client";
 import "./App.css";
 
-// Socket.io connection (outside component)
+// Socket.io connection
 const socket = io(import.meta.env.VITE_BACKEND_URL, {
   transports: ["websocket"],
 });
@@ -34,7 +34,6 @@ function App() {
   const userVideo = useRef();
   const connectionRef = useRef();
 
-  // STUN servers only
   const iceServers = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -43,7 +42,6 @@ function App() {
     ],
   };
 
-  // 1️⃣ Get user media on load
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -72,19 +70,16 @@ function App() {
     return () => socket.off();
   }, []);
 
-  // 2️⃣ Assign local video stream to <video> element
+  // Assign local video
   useEffect(() => {
-    if (myVideo.current && stream) {
-      myVideo.current.srcObject = stream;
-    }
+    if (myVideo.current && stream) myVideo.current.srcObject = stream;
   }, [stream]);
 
-  // 3️⃣ Call a user
   const callUser = (id) => {
     const peer = new Peer({
       initiator: true,
       trickle: false,
-      stream: stream,
+      stream,
       config: iceServers,
     });
 
@@ -104,13 +99,12 @@ function App() {
     connectionRef.current = peer;
   };
 
-  // 4️⃣ Answer a call
   const answerCall = () => {
     setCallAccepted(true);
     const peer = new Peer({
       initiator: false,
       trickle: false,
-      stream: stream,
+      stream,
       config: iceServers,
     });
 
@@ -126,7 +120,6 @@ function App() {
     connectionRef.current = peer;
   };
 
-  // 5️⃣ End call
   const leaveCall = () => {
     setCallEnded(true);
     connectionRef.current?.destroy();
@@ -134,7 +127,6 @@ function App() {
     window.location.reload();
   };
 
-  // 6️⃣ Mute / Unmute
   const toggleMute = () => {
     if (stream) {
       stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
@@ -142,7 +134,6 @@ function App() {
     }
   };
 
-  // 7️⃣ Toggle video
   const toggleVideo = () => {
     if (stream) {
       stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
@@ -153,32 +144,25 @@ function App() {
   return (
     <div className="container">
       <div className="video-container">
-        {/* Local video */}
-        <div className="video">
+        {/* Local Video */}
+        <div className="video-wrapper">
           {stream ? (
             <video
               playsInline
               muted
               autoPlay
               ref={myVideo}
-              style={{ width: "580px", transform: "scaleX(-1)" }}
+              className="video-box"
             />
           ) : (
-            <div style={{ width: "580px", height: "360px", background: "#000" }}>
-              Loading camera...
-            </div>
+            <div className="video-box placeholder">Loading camera...</div>
           )}
         </div>
 
-        {/* Remote video */}
-        <div className="video">
+        {/* Remote Video */}
+        <div className="video-wrapper">
           {callAccepted && !callEnded && (
-            <video
-              playsInline
-              autoPlay
-              ref={userVideo}
-              style={{ width: "580px" }}
-            />
+            <video playsInline autoPlay ref={userVideo} className="video-box" />
           )}
         </div>
       </div>
@@ -204,26 +188,46 @@ function App() {
           onChange={(e) => setIdToCall(e.target.value)}
         />
 
-        {callAccepted && !callEnded ? (
-          <Button variant="contained" color="secondary" onClick={leaveCall}>
-            End Call
-          </Button>
-        ) : (
-          <IconButton color="primary" onClick={() => callUser(idToCall)}>
-            <PhoneIcon fontSize="large" />
-          </IconButton>
-        )}
+        <Stack direction="row" spacing={2} mt={2}>
+          {callAccepted && !callEnded ? (
+            <Button variant="contained" color="secondary" onClick={leaveCall}>
+              End Call
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PhoneIcon />}
+              onClick={() => callUser(idToCall)}
+            >
+              Call
+            </Button>
+          )}
 
-        <div>
-          <IconButton onClick={toggleMute}>{isMuted ? <MicOffIcon /> : <MicIcon />}</IconButton>
-          <IconButton onClick={toggleVideo}>{isVideoOff ? <VideocamOffIcon /> : <VideocamIcon />}</IconButton>
-        </div>
+          <Button
+            variant="contained"
+            color={isMuted ? "error" : "primary"}
+            startIcon={isMuted ? <MicOffIcon /> : <MicIcon />}
+            onClick={toggleMute}
+          >
+            {isMuted ? "Unmute" : "Mute"}
+          </Button>
+
+          <Button
+            variant="contained"
+            color={isVideoOff ? "error" : "primary"}
+            startIcon={isVideoOff ? <VideocamOffIcon /> : <VideocamIcon />}
+            onClick={toggleVideo}
+          >
+            {isVideoOff ? "Start Video" : "Stop Video"}
+          </Button>
+        </Stack>
       </div>
 
       {receivingCall && !callAccepted && (
         <div className="caller">
           <h2>{callerName || "Someone"} is calling...</h2>
-          <Button variant="contained" onClick={answerCall}>
+          <Button variant="contained" color="primary" onClick={answerCall}>
             Answer
           </Button>
         </div>
