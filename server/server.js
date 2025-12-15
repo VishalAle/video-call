@@ -4,25 +4,20 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 
-/**
- * Health check route
- * This is IMPORTANT so you don't see "Cannot GET /"
- */
 app.get("/", (req, res) => {
   res.send("Socket.io signaling server is running");
 });
 
+// CORS must allow your frontend domain
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*", // allow frontend (Vercel)
+    origin: "*", // for testing you can allow all
     methods: ["GET", "POST"],
   },
 });
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
-
-  // Send socket id to frontend
   socket.emit("me", socket.id);
 
   socket.on("disconnect", () => {
