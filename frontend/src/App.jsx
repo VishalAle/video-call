@@ -12,6 +12,7 @@ import io from "socket.io-client"
 import "./App.css"
 
 const socket = io.connect(import.meta.env.VITE_BACKEND_URL);
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 function App() {
   const [me, setMe] = useState("")
