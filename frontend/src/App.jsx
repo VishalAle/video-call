@@ -7,14 +7,11 @@ import MicOffIcon from "@mui/icons-material/MicOff";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import VideocamOffIcon from "@mui/icons-material/VideocamOff";
 import { CopyToClipboard } from "react-copy-to-clipboard-ts";
-import Peer from "simple-peer/simplepeer.min.js";
+import Peer from "simple-peer";
 import io from "socket.io-client";
 import "./App.css";
 
-/**
- * IMPORTANT:
- * Socket must be created ONCE and OUTSIDE component
- */
+// Connect Socket.io ONCE
 const socket = io(import.meta.env.VITE_BACKEND_URL, {
   transports: ["websocket"],
 });
@@ -37,10 +34,16 @@ function App() {
   const userVideo = useRef();
   const connectionRef = useRef();
 
-  useEffect(() => {
-    // DEBUG
-    console.log("Backend URL:", import.meta.env.VITE_BACKEND_URL);
+  // STUN config
+  const iceServers = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+    ],
+  };
 
+  useEffect(() => {
     // Get camera & mic
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -52,16 +55,11 @@ function App() {
       })
       .catch((err) => {
         console.error("Media error:", err);
-        alert("Camera & microphone permission required");
+        alert("Please allow camera and microphone access!");
       });
 
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-    });
-
-    socket.on("me", (id) => {
-      setMe(id);
-    });
+    socket.on("connect", () => console.log("Socket connected:", socket.id));
+    socket.on("me", (id) => setMe(id));
 
     socket.on("callUser", (data) => {
       setReceivingCall(true);
@@ -76,39 +74,28 @@ function App() {
       window.location.reload();
     });
 
-    return () => {
-      socket.off();
-    };
+    return () => socket.off();
   }, []);
-
-  // STUN-only ICE servers
-  const iceConfig = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-    ],
-  };
 
   const callUser = (id) => {
     const peer = new Peer({
       initiator: true,
       trickle: false,
       stream: stream,
-      config: iceConfig,
+      config: iceServers,
     });
 
-    peer.on("signal", (data) => {
+    peer.on("signal", (data) =>
       socket.emit("callUser", {
         userToCall: id,
         signalData: data,
         from: me,
-        name: name,
-      });
-    });
+        name,
+      })
+    );
 
     peer.on("stream", (currentStream) => {
-      userVideo.current.srcObject = currentStream;
+      if (userVideo.current) userVideo.current.srcObject = currentStream;
     });
 
     socket.on("callAccepted", (signal) => {
@@ -121,23 +108,19 @@ function App() {
 
   const answerCall = () => {
     setCallAccepted(true);
-
     const peer = new Peer({
       initiator: false,
       trickle: false,
       stream: stream,
-      config: iceConfig,
+      config: iceServers,
     });
 
-    peer.on("signal", (data) => {
-      socket.emit("answerCall", {
-        signal: data,
-        to: caller,
-      });
-    });
+    peer.on("signal", (data) =>
+      socket.emit("answerCall", { signal: data, to: caller })
+    );
 
     peer.on("stream", (currentStream) => {
-      userVideo.current.srcObject = currentStream;
+      if (userVideo.current) userVideo.current.srcObject = currentStream;
     });
 
     peer.signal(callerSignal);
@@ -152,17 +135,13 @@ function App() {
   };
 
   const toggleMute = () => {
-    stream.getAudioTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-    setIsMuted((prev) => !prev);
+    stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
+    setIsMuted(!isMuted);
   };
 
   const toggleVideo = () => {
-    stream.getVideoTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-    setIsVideoOff((prev) => !prev);
+    stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
+    setIsVideoOff(!isVideoOff);
   };
 
   return (
@@ -201,11 +180,7 @@ function App() {
         />
 
         <CopyToClipboard text={me}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AssignmentIcon />}
-          >
+          <Button variant="contained" color="primary" startIcon={<AssignmentIcon />}>
             Copy ID
           </Button>
         </CopyToClipboard>
@@ -228,13 +203,8 @@ function App() {
         )}
 
         <div>
-          <IconButton onClick={toggleMute}>
-            {isMuted ? <MicOffIcon /> : <MicIcon />}
-          </IconButton>
-
-          <IconButton onClick={toggleVideo}>
-            {isVideoOff ? <VideocamOffIcon /> : <VideocamIcon />}
-          </IconButton>
+          <IconButton onClick={toggleMute}>{isMuted ? <MicOffIcon /> : <MicIcon />}</IconButton>
+          <IconButton onClick={toggleVideo}>{isVideoOff ? <VideocamOffIcon /> : <VideocamIcon />}</IconButton>
         </div>
       </div>
 

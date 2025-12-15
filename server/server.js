@@ -8,16 +8,16 @@ app.get("/", (req, res) => {
   res.send("Socket.io signaling server is running");
 });
 
-// CORS must allow your frontend domain
 const io = require("socket.io")(server, {
   cors: {
-    origin: "*", // for testing you can allow all
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
   socket.emit("me", socket.id);
 
   socket.on("disconnect", () => {
@@ -42,6 +42,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+server.listen(PORT, () => console.log("Server running on port", PORT));
