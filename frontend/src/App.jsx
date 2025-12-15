@@ -11,7 +11,7 @@ import Peer from "simple-peer/simplepeer.min.js"
 import io from "socket.io-client"
 import "./App.css"
 
-const socket = io.connect("http://localhost:5000")
+const socket = io.connect(import.meta.env.VITE_BACKEND_URL);
 
 function App() {
   const [me, setMe] = useState("")
@@ -70,6 +70,13 @@ function App() {
       initiator: true,
       trickle: false,
       stream: stream,
+      config: {
+      iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+    ],
+    },
     })
 
     peer.on("signal", (data) => {
@@ -99,6 +106,13 @@ function App() {
       initiator: false,
       trickle: false,
       stream: stream,
+      config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+    ],
+    },
     })
 
     peer.on("signal", (data) => {
