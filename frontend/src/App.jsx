@@ -11,7 +11,7 @@ import Peer from "simple-peer";
 import io from "socket.io-client";
 import "./App.css";
 
-// Connect Socket.io ONCE
+// Socket.io connection (outside component)
 const socket = io(import.meta.env.VITE_BACKEND_URL, {
   transports: ["websocket"],
 });
@@ -34,7 +34,7 @@ function App() {
   const userVideo = useRef();
   const connectionRef = useRef();
 
-  // STUN config
+  // STUN servers only
   const iceServers = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -43,16 +43,11 @@ function App() {
     ],
   };
 
+  // 1️⃣ Get user media on load
   useEffect(() => {
-    // Get camera & mic
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
-        setStream(currentStream);
-        if (myVideo.current) {
-          myVideo.current.srcObject = currentStream;
-        }
-      })
+      .then((currentStream) => setStream(currentStream))
       .catch((err) => {
         console.error("Media error:", err);
         alert("Please allow camera and microphone access!");
@@ -77,6 +72,14 @@ function App() {
     return () => socket.off();
   }, []);
 
+  // 2️⃣ Assign local video stream to <video> element
+  useEffect(() => {
+    if (myVideo.current && stream) {
+      myVideo.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  // 3️⃣ Call a user
   const callUser = (id) => {
     const peer = new Peer({
       initiator: true,
@@ -86,12 +89,7 @@ function App() {
     });
 
     peer.on("signal", (data) =>
-      socket.emit("callUser", {
-        userToCall: id,
-        signalData: data,
-        from: me,
-        name,
-      })
+      socket.emit("callUser", { userToCall: id, signalData: data, from: me, name })
     );
 
     peer.on("stream", (currentStream) => {
@@ -106,6 +104,7 @@ function App() {
     connectionRef.current = peer;
   };
 
+  // 4️⃣ Answer a call
   const answerCall = () => {
     setCallAccepted(true);
     const peer = new Peer({
@@ -127,6 +126,7 @@ function App() {
     connectionRef.current = peer;
   };
 
+  // 5️⃣ End call
   const leaveCall = () => {
     setCallEnded(true);
     connectionRef.current?.destroy();
@@ -134,21 +134,28 @@ function App() {
     window.location.reload();
   };
 
+  // 6️⃣ Mute / Unmute
   const toggleMute = () => {
-    stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
-    setIsMuted(!isMuted);
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
+      setIsMuted(!isMuted);
+    }
   };
 
+  // 7️⃣ Toggle video
   const toggleVideo = () => {
-    stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
-    setIsVideoOff(!isVideoOff);
+    if (stream) {
+      stream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
+      setIsVideoOff(!isVideoOff);
+    }
   };
 
   return (
     <div className="container">
       <div className="video-container">
+        {/* Local video */}
         <div className="video">
-          {stream && (
+          {stream ? (
             <video
               playsInline
               muted
@@ -156,9 +163,14 @@ function App() {
               ref={myVideo}
               style={{ width: "580px", transform: "scaleX(-1)" }}
             />
+          ) : (
+            <div style={{ width: "580px", height: "360px", background: "#000" }}>
+              Loading camera...
+            </div>
           )}
         </div>
 
+        {/* Remote video */}
         <div className="video">
           {callAccepted && !callEnded && (
             <video
