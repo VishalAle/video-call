@@ -3,7 +3,7 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const CLIENT_ORIGIN = frontend-rust-theta-80.vercel.app;
 
 const io = require("socket.io")(server, {
   cors: {
