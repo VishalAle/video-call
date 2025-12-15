@@ -1,4 +1,7 @@
 const express = require("express");
+app.get("/", (req, res) => {
+  res.send("Socket.io signaling server is running");
+});
 const http = require("http");
 const app = express();
 const server = http.createServer(app);
