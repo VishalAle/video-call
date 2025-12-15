@@ -1,21 +1,28 @@
 const express = require("express");
-app.get("/", (req, res) => {
-  res.send("Socket.io signaling server is running");
-});
 const http = require("http");
+
 const app = express();
 const server = http.createServer(app);
 
-const CLIENT_ORIGIN = frontend-rust-theta-80.vercel.app;
+/**
+ * Health check route
+ * This is IMPORTANT so you don't see "Cannot GET /"
+ */
+app.get("/", (req, res) => {
+  res.send("Socket.io signaling server is running");
+});
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: CLIENT_ORIGIN,
+    origin: "*", // allow frontend (Vercel)
     methods: ["GET", "POST"],
   },
 });
 
 io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // Send socket id to frontend
   socket.emit("me", socket.id);
 
   socket.on("disconnect", () => {
@@ -40,4 +47,6 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`server is running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});

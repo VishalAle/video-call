@@ -1,85 +1,102 @@
-import React, { useEffect, useRef, useState } from "react"
-import { Button, IconButton, TextField } from "@mui/material"
-import AssignmentIcon from "@mui/icons-material/Assignment"
-import PhoneIcon from "@mui/icons-material/Phone"
-import MicIcon from "@mui/icons-material/Mic"
-import MicOffIcon from "@mui/icons-material/MicOff"
-import VideocamIcon from "@mui/icons-material/Videocam"
-import VideocamOffIcon from "@mui/icons-material/VideocamOff"
-import { CopyToClipboard } from "react-copy-to-clipboard-ts"
-import Peer from "simple-peer/simplepeer.min.js"
-import io from "socket.io-client"
-import "./App.css"
+import React, { useEffect, useRef, useState } from "react";
+import { Button, IconButton, TextField } from "@mui/material";
+import AssignmentIcon from "@mui/icons-material/Assignment";
+import PhoneIcon from "@mui/icons-material/Phone";
+import MicIcon from "@mui/icons-material/Mic";
+import MicOffIcon from "@mui/icons-material/MicOff";
+import VideocamIcon from "@mui/icons-material/Videocam";
+import VideocamOffIcon from "@mui/icons-material/VideocamOff";
+import { CopyToClipboard } from "react-copy-to-clipboard-ts";
+import Peer from "simple-peer/simplepeer.min.js";
+import io from "socket.io-client";
+import "./App.css";
 
-const socket = io.connect("https://server-ic22.onrender.com");
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-
+/**
+ * IMPORTANT:
+ * Socket must be created ONCE and OUTSIDE component
+ */
+const socket = io(import.meta.env.VITE_BACKEND_URL, {
+  transports: ["websocket"],
+});
 
 function App() {
-  const [me, setMe] = useState("")
-  const [stream, setStream] = useState()
-  const [receivingCall, setReceivingCall] = useState(false)
-  const [caller, setCaller] = useState("")
-  const [callerSignal, setCallerSignal] = useState()
-  const [callAccepted, setCallAccepted] = useState(false)
-  const [idToCall, setIdToCall] = useState("")
-  const [callEnded, setCallEnded] = useState(false)
-  const [name, setName] = useState("")
-  const [isMuted, setIsMuted] = useState(false)
-  const [isVideoOff, setIsVideoOff] = useState(false)
-  const [callerName, setCallerName] = useState("")
+  const [me, setMe] = useState("");
+  const [stream, setStream] = useState(null);
+  const [receivingCall, setReceivingCall] = useState(false);
+  const [caller, setCaller] = useState("");
+  const [callerSignal, setCallerSignal] = useState(null);
+  const [callAccepted, setCallAccepted] = useState(false);
+  const [idToCall, setIdToCall] = useState("");
+  const [callEnded, setCallEnded] = useState(false);
+  const [name, setName] = useState("");
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [callerName, setCallerName] = useState("");
 
-
-  const myVideo = useRef()
-  const userVideo = useRef()
-  const connectionRef = useRef()
+  const myVideo = useRef();
+  const userVideo = useRef();
+  const connectionRef = useRef();
 
   useEffect(() => {
+    // DEBUG
+    console.log("Backend URL:", import.meta.env.VITE_BACKEND_URL);
+
+    // Get camera & mic
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setStream(stream)
+      .then((currentStream) => {
+        setStream(currentStream);
         if (myVideo.current) {
-          myVideo.current.srcObject = stream
+          myVideo.current.srcObject = currentStream;
         }
       })
       .catch((err) => {
-        console.error("Failed to get camera/mic access:", err)
-        alert("Camera and microphone permission are required for this app. Please enable them.")
-      })
+        console.error("Media error:", err);
+        alert("Camera & microphone permission required");
+      });
+
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
 
     socket.on("me", (id) => {
-      setMe(id)
-    })
+      setMe(id);
+    });
 
     socket.on("callUser", (data) => {
-      setReceivingCall(true)
-      setCaller(data.from)
-      setCallerName(data.name)
-      setCallerSignal(data.signal)
-    })
-    
+      setReceivingCall(true);
+      setCaller(data.from);
+      setCallerName(data.name);
+      setCallerSignal(data.signal);
+    });
+
     socket.on("callEnded", () => {
-    alert("The other user ended the call.")
-    setCallEnded(true)
-    connectionRef.current?.destroy()
-    window.location.reload()
-  })
-  }, [])
+      setCallEnded(true);
+      connectionRef.current?.destroy();
+      window.location.reload();
+    });
+
+    return () => {
+      socket.off();
+    };
+  }, []);
+
+  // STUN-only ICE servers
+  const iceConfig = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+    ],
+  };
 
   const callUser = (id) => {
     const peer = new Peer({
       initiator: true,
       trickle: false,
       stream: stream,
-      config: {
-      iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-    ],
-    },
-    })
+      config: iceConfig,
+    });
 
     peer.on("signal", (data) => {
       socket.emit("callUser", {
@@ -87,192 +104,150 @@ function App() {
         signalData: data,
         from: me,
         name: name,
-      })
-    })
+      });
+    });
 
-    peer.on("stream", (stream) => {
-      userVideo.current.srcObject = stream
-    })
+    peer.on("stream", (currentStream) => {
+      userVideo.current.srcObject = currentStream;
+    });
 
     socket.on("callAccepted", (signal) => {
-      setCallAccepted(true)
-      peer.signal(signal)
-    })
+      setCallAccepted(true);
+      peer.signal(signal);
+    });
 
-    connectionRef.current = peer
-  }
+    connectionRef.current = peer;
+  };
 
   const answerCall = () => {
-    setCallAccepted(true)
+    setCallAccepted(true);
+
     const peer = new Peer({
       initiator: false,
       trickle: false,
       stream: stream,
-      config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-    ],
-    },
-    })
+      config: iceConfig,
+    });
 
     peer.on("signal", (data) => {
-      socket.emit("answerCall", { signal: data, to: caller })
-    })
+      socket.emit("answerCall", {
+        signal: data,
+        to: caller,
+      });
+    });
 
-    peer.on("stream", (stream) => {
-      userVideo.current.srcObject = stream
-    })
+    peer.on("stream", (currentStream) => {
+      userVideo.current.srcObject = currentStream;
+    });
 
-    peer.signal(callerSignal)
-    connectionRef.current = peer
-  }
+    peer.signal(callerSignal);
+    connectionRef.current = peer;
+  };
 
   const leaveCall = () => {
-    setCallEnded(true)
-    connectionRef.current?.destroy()
-    socket.emit("endCall", { to: caller || idToCall }) // 👈 notify the other peer
-    window.location.reload()
-  }
+    setCallEnded(true);
+    connectionRef.current?.destroy();
+    socket.emit("endCall", { to: caller || idToCall });
+    window.location.reload();
+  };
 
   const toggleMute = () => {
-    if (stream) {
-      stream.getAudioTracks().forEach((track) => {
-        track.enabled = !track.enabled
-      })
-      setIsMuted((prev) => !prev)
-    }
-  }
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+    });
+    setIsMuted((prev) => !prev);
+  };
 
   const toggleVideo = () => {
-    if (stream) {
-      stream.getVideoTracks().forEach((track) => {
-        track.enabled = !track.enabled
-      })
-      setIsVideoOff((prev) => !prev)
-    }
-  }
+    stream.getVideoTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+    });
+    setIsVideoOff((prev) => !prev);
+  };
 
   return (
-    <>
-      <div className="container">
-        <div className="video-container">
-          <div className="video">
-            {stream && (
-              <video
-                playsInline
-                muted
-                ref={myVideo}
-                autoPlay
-                style={{
-                         width: "580px",
-                         transform: "scaleX(-1)", // Un-mirror local video
-                 }}
-              />
-            )}
-          </div>
-          <div className="video">
-            {callAccepted && !callEnded ? (
-              <video
-                playsInline
-                ref={userVideo}
-                autoPlay
-                style={{
-                         width: "580px",
-                         transform: "scaleX(-1)", // Un-mirror local video
-                 }}
-              />
-            ) : null}
-          </div>
+    <div className="container">
+      <div className="video-container">
+        <div className="video">
+          {stream && (
+            <video
+              playsInline
+              muted
+              autoPlay
+              ref={myVideo}
+              style={{ width: "580px", transform: "scaleX(-1)" }}
+            />
+          )}
         </div>
 
-        <div className="myId">
-          <TextField
-            id="filled-basic"
-            label="Name"
-            variant="filled"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ marginBottom: "20px" }}
-          />
-
-          <CopyToClipboard text={me} style={{ marginBottom: "2rem" }}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AssignmentIcon fontSize="large" />}
-            >
-              Copy ID
-            </Button>
-          </CopyToClipboard>
-
-          <TextField
-            id="filled-basic"
-            label="ID to call"
-            variant="filled"
-            value={idToCall}
-            onChange={(e) => setIdToCall(e.target.value)}
-          />
-
-          {/* Call + Control Buttons */}
-          <div className="call-button">
-            {callAccepted && !callEnded ? (
-              <Button variant="contained" color="secondary" onClick={leaveCall}>
-                End Call
-              </Button>
-            ) : (
-              <IconButton
-                color="primary"
-                aria-label="call"
-                onClick={() => callUser(idToCall)}
-              >
-                <PhoneIcon fontSize="large" />
-              </IconButton>
-            )}
-
-            {/* Mic + Video Controls */}
-            <div style={{ marginTop: "1rem" }}>
-              <IconButton
-                color={isMuted ? "error" : "primary"}
-                onClick={toggleMute}
-                style={{ marginRight: "1rem" }}
-              >
-                {isMuted ? (
-                  <MicOffIcon fontSize="large" />
-                ) : (
-                  <MicIcon fontSize="large" />
-                )}
-              </IconButton>
-
-              <IconButton
-                color={isVideoOff ? "error" : "primary"}
-                onClick={toggleVideo}
-              >
-                {isVideoOff ? (
-                  <VideocamOffIcon fontSize="large" />
-                ) : (
-                  <VideocamIcon fontSize="large" />
-                )}
-              </IconButton>
-            </div>
-          </div>
-        </div>
-
-        {/* Incoming call notification */}
-        <div>
-          {receivingCall && !callAccepted ? (
-            <div className="caller">
-              <h1>{callerName || "Someone"} is calling...</h1>
-              <Button variant="contained" color="primary" onClick={answerCall}>
-                Answer
-              </Button>
-            </div>
-          ) : null}
+        <div className="video">
+          {callAccepted && !callEnded && (
+            <video
+              playsInline
+              autoPlay
+              ref={userVideo}
+              style={{ width: "580px" }}
+            />
+          )}
         </div>
       </div>
-    </>
-  )
+
+      <div className="myId">
+        <TextField
+          label="Name"
+          variant="filled"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        <CopyToClipboard text={me}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AssignmentIcon />}
+          >
+            Copy ID
+          </Button>
+        </CopyToClipboard>
+
+        <TextField
+          label="ID to call"
+          variant="filled"
+          value={idToCall}
+          onChange={(e) => setIdToCall(e.target.value)}
+        />
+
+        {callAccepted && !callEnded ? (
+          <Button variant="contained" color="secondary" onClick={leaveCall}>
+            End Call
+          </Button>
+        ) : (
+          <IconButton color="primary" onClick={() => callUser(idToCall)}>
+            <PhoneIcon fontSize="large" />
+          </IconButton>
+        )}
+
+        <div>
+          <IconButton onClick={toggleMute}>
+            {isMuted ? <MicOffIcon /> : <MicIcon />}
+          </IconButton>
+
+          <IconButton onClick={toggleVideo}>
+            {isVideoOff ? <VideocamOffIcon /> : <VideocamIcon />}
+          </IconButton>
+        </div>
+      </div>
+
+      {receivingCall && !callAccepted && (
+        <div className="caller">
+          <h2>{callerName || "Someone"} is calling...</h2>
+          <Button variant="contained" onClick={answerCall}>
+            Answer
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
