@@ -188,7 +188,7 @@ function App() {
           onChange={(e) => setIdToCall(e.target.value)}
         />
 
-        <Stack direction="row" spacing={2} mt={2}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mt={2}>
           {callAccepted && !callEnded ? (
             <Button variant="contained" color="secondary" onClick={leaveCall}>
               End Call
